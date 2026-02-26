@@ -1,0 +1,122 @@
+This is the definitive, enterprise-grade blueprint for the **Transparent AOT Compiler Wrapper**. This roadmap completely bridges the gap between raw machine learning models and high-performance edge deployment, incorporating the scalability of the Strategy Pattern and the developer experience of a modern interactive tool.
+
+It shifts the focus from writing isolated naive kernels to architecting a complete deployment infrastructure.
+
+The Vision (The Transparent Edge Pipeline):
+- The Problem: Vendor tools (like Qualcomm QNN or MediaTek NeuroPilot) are inherently "black boxes." You feed them an ONNX model, and they spit out a proprietary machine-code binary. If the NPU rejects an operation and falls back to the CPU, or if quantization destroys the model's accuracy, the developer has no idea why.
+        
+- The Approach: Build a Transparent AOT Compiler Wrapper. This Python orchestrator automates the vendor toolchain but acts as an auditor at every step. It intercepts the ONNX graph, tracks the quantization scales, monitors hardware fallbacks, and packages the final output into a transparent, human-readable bundle.
+
+- The Result: Instead of a hidden proprietary file, the output is a Deployment Archive containing the highly optimized NPU binary alongside a clear manifest.json. The Android developer gets blazing-fast C++ execution, while the AI engineer gets a fully transparent audit log of exactly what happened to the model.
+
+- The Experience: The wrapper runs as an interactive software application — not just a rigid CLI. On startup it automatically checks and provisions the required SDK, then guides the user through model selection, target choice, and calibration setup via a polished terminal UI (Rich TUI). CLI flags are also supported for scripted / CI workflows.
+---
+
+### **The Architecture Blueprint: System Design**
+
+The codebase is split into three strict domains to ensure that adding new hardware vendors in the future never breaks the core logic.
+
+**Directory Structure:**
+
+```text
+edge_aot_compiler/
+├── cli.py                 # The Entry Point: Interactive TUI + fallback CLI flags
+├── core/                  # Domain 1: Vendor-Agnostic Logic
+│   ├── sdk_manager.py     # Phase 0: QAIRT SDK download, extract, validate
+│   ├── analyzer.py        # Parses ONNX, extracts shapes, writes pre_compile_topology.json
+│   ├── calibrator.py      # Converts images/audio to .raw, generates input_list.txt
+│   ├── packager.py        # Generates manifest.json and zips the final deployment bundle
+│   └── compiler_base.py   # The Strategy Pattern interface (Abstract Base Class)
+├── plugins/               # Domain 2: Vendor-Specific Implementations (Scalability)
+│   ├── qualcomm_lpai.py   # Implements VendorCompiler for QNN (Hexagon/LPAI)
+│   └── mediatek_apu.py    # Implements VendorCompiler for NeuroPilot (Future)
+└── edge_runtime/          # Domain 3: The C++ Android Target
+    ├── MyEngine.h         # The minimal C++ API 
+    └── MyEngine.cpp       # JNI hooks and dynamic vendor library loading (dlopen)
+
+```
+
+---
+
+### **The Implementation Roadmap (Step-by-Step)**
+
+#### **Phase 0: SDK Provisioning (Automatic)**
+
+* **Mục tiêu (Goal):** Ensure the Qualcomm AI Runtime (QAIRT) SDK is available before any compilation can begin. The wrapper should feel like installable software — it provisions its own dependencies.
+* **Architecture:** `core/sdk_manager.py` — called automatically at startup before any user interaction.
+* **SDK Source:** https://softwarecenter.qualcomm.com/api/download/software/sdks/Qualcomm_AI_Runtime_Community/All/2.43.0.260128/v2.43.0.260128.zip
+* **Tasks:**
+1. Check if `qairt/2.43.0.260128/` exists in the project root.
+2. If missing, prompt the user for confirmation, then download the SDK zip with a rich progress bar (download size, speed, ETA).
+3. Extract the zip into `qairt/` with progress tracking.
+4. Validate that key QNN binaries exist (`qnn-onnx-converter`, `qnn-model-lib-generator`, `qnn-context-binary-generator`).
+5. Set up environment variables (`QNN_SDK_ROOT`, `PATH`) for subprocess calls in later phases.
+
+
+#### **Phase 1: The Orchestrator & Interactive UI Foundation**
+
+* **Mục tiêu (Goal):** Set up the scalable skeleton and the developer experience (DevEx) layer as an interactive software application.
+* **Architecture:** The `cli.py` entry point uses `rich` to provide a guided TUI experience. On startup (after Phase 0 SDK check), it interactively prompts the user for all required parameters. CLI flags (`--model`, `--target`, etc.) are also supported for scripted / CI workflows.
+* **Interactive Flow:**
+1. Display a welcome banner with the project name and version.
+2. Run Phase 0 SDK check (automatic).
+3. Prompt: Model path (with file-exists validation, .onnx check).
+4. Prompt: Target backend (numbered menu: qnn_lpai, mediatek_apu).
+5. Prompt: Calibration data directory (optional, directory-exists validation).
+6. Prompt: Output directory (default: build/).
+7. Show a confirmation summary panel and ask to proceed.
+8. Execute the compilation pipeline with a live-updating progress tree.
+* **Tasks:**
+1. Define the Abstract Base Class `VendorCompiler` in `core/compiler_base.py` with abstract methods: `generate_configs()`, `compile()`, and `intercept_logs()`.
+2. Build `cli.py` with dual-mode support (interactive + CLI flags).
+3. Implement a `rich.console` pipeline that prints a beautiful, live-updating progress tree as the compiler moves through its phases.
+
+
+
+#### **Phase 2: The Auditor (Topology & Calibration)**
+
+* **Mục tiêu (Goal):** Extract the mathematical boundaries of the model to ensure the C++ runtime knows exactly how much memory to allocate without doing shape inference on the phone.
+* **Architecture:** `core/analyzer.py` and `core/calibrator.py`.
+* **Tasks:**
+1. Load the model using the `onnx` Python package.
+2. Iterate through the graph nodes to extract input/output names, precision (FP32/INT8), and tensor shapes.
+3. Serialize this data into a human-readable `pre_compile_topology.json`.
+4. Read the directory passed via `--calibration_dir`, use NumPy to convert the images/audio into raw binary arrays (`.raw`), and generate the `input_list.txt` required for quantization.
+
+
+
+#### **Phase 3: The Qualcomm Plugin (The Strategy Implementation)** https://docs.qualcomm.com/doc/80-62010-1/topic/qnn-workflow.html
+
+* **Mục tiêu (Goal):** Implement the specific logic for compiling down to the Qualcomm NPU using the vendor's black-box SDK, while intercepting its logs.
+* **Architecture:** `plugins/qualcomm_lpai.py` inheriting from `VendorCompiler`.
+* **Tasks:**
+1. **Configuration:** Programmatically generate `lpaiParams.conf` and `config.json` targeting the LPAI v6 backend.
+2. **Quantization & Conversion:** Use Python's `subprocess` to execute `qnn-onnx-converter`. Pass the `input_list.txt` to trigger INT8/INT16 post-training quantization. Capture `stdout` to look for fallback warnings.
+3. **Library Generation:** Subprocess `qnn-model-lib-generator` to create the intermediate `.so`.
+4. **Binary Generation:** Subprocess `qnn-context-binary-generator` to output the final, optimized `model.serialized` machine code. Write all captured logs to an `audit_log.txt`.
+
+
+
+#### **Phase 4: The Transparent Packager**
+
+* **Mục tiêu (Goal):** Bundle the raw hardware outputs into a clean, auditable format for the mobile developer.
+* **Architecture:** `core/packager.py`.
+* **Tasks:**
+1. Combine the data from `pre_compile_topology.json` and the compilation results into a master `manifest.json`. This file acts as the absolute source of truth for the edge device.
+2. Use Python's `zipfile` module to compress the `manifest.json`, the `model.serialized` payload, and your `audit_log.txt` into a single `deploy_bundle.zip`.
+
+
+
+#### **Phase 5: The Native Edge Runtime (Android C++ Integration)**
+
+* **Mục tiêu (Goal):** Consume the `deploy_bundle.zip` on the mobile device with absolute minimal overhead.
+* **Architecture:** C++ Native Development Kit (NDK) and Java Native Interface (JNI).
+* **Tasks:**
+1. Write `MyEngine.cpp` to unzip the bundle in the Android app's cache directory.
+2. Parse the `manifest.json` using a lightweight C++ JSON library (like `nlohmann/json`) to allocate the exact byte sizes for the input and output memory buffers.
+3. Use `dlopen` to dynamically load Qualcomm's `libQnnLpai.so` directly on the Android device.
+4. Map the extracted `.serialized` payload into NPU memory using QNN's `contextCreateFromBinary` API, passing the input buffers directly from the Android UI to the silicon.
+
+
+
+This roadmap proves you can handle the entire lifecycle—from provisioning SDK dependencies and guiding users through an interactive setup, to parsing complex computational graphs on a host machine, to writing the low-level memory allocation routines required for high-performance mobile application deployment.

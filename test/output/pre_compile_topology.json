@@ -1,0 +1,54 @@
+{
+  "metadata": {
+    "ir_version": 7,
+    "producer_name": "pytorch",
+    "producer_version": "2.3.0",
+    "opset_imports": {
+      "ai.onnx": 14
+    }
+  },
+  "has_dynamic_shapes": true,
+  "inputs": [
+    {
+      "name": "input_features",
+      "shape": [
+        "batch_size",
+        "feature_size",
+        "encoder_sequence_length"
+      ],
+      "dtype": "FLOAT",
+      "has_dynamic_dimensions": true
+    }
+  ],
+  "outputs": [
+    {
+      "name": "last_hidden_state",
+      "shape": [
+        "batch_size",
+        1500,
+        512
+      ],
+      "dtype": "FLOAT"
+    }
+  ],
+  "operators": {
+    "Conv": 2,
+    "Constant": 242,
+    "Div": 21,
+    "Erf": 8,
+    "Add": 77,
+    "Mul": 41,
+    "Transpose": 31,
+    "ReduceMean": 26,
+    "Sub": 13,
+    "Pow": 13,
+    "Sqrt": 13,
+    "Shape": 12,
+    "Gather": 12,
+    "MatMul": 48,
+    "Unsqueeze": 66,
+    "Concat": 48,
+    "Reshape": 48,
+    "Softmax": 6
+  }
+}
