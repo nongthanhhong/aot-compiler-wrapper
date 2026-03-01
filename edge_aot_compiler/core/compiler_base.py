@@ -44,7 +44,7 @@ class VendorCompiler(ABC):
     def generate_configs(self) -> Dict[str, Any]:
         """
         Generate vendor-specific configuration files required by the
-        toolchain (e.g., lpaiParams.conf for QNN, config files for NeuroPilot).
+        toolchain (e.g., htp_backend_extensions.json for QNN, config files for NeuroPilot).
 
         Returns:
             Dict mapping config file names to their generated paths.

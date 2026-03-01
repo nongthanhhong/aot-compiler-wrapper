@@ -49,10 +49,10 @@ VENDOR_REGISTRY: dict[str, type[VendorCompiler]] = {}
 
 def _register_plugins() -> None:
     """Lazily register all available vendor plugins."""
-    from edge_aot_compiler.plugins.qualcomm_lpai import QualcommLPAICompiler
+    from edge_aot_compiler.plugins.qualcomm_htp import QualcommHTPCompiler
     from edge_aot_compiler.plugins.mediatek_apu import MediaTekAPUCompiler
 
-    VENDOR_REGISTRY["qnn_lpai"] = QualcommLPAICompiler
+    VENDOR_REGISTRY["qnn_htp"] = QualcommHTPCompiler
     VENDOR_REGISTRY["mediatek_apu"] = MediaTekAPUCompiler
 
 
@@ -72,7 +72,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--target", type=str, default=None,
-        choices=["qnn_lpai", "mediatek_apu"],
+        choices=["qnn_htp", "mediatek_apu"],
         help="Target hardware vendor / backend",
     )
     parser.add_argument(
@@ -102,7 +102,7 @@ def _prompt_model(console: Console) -> Path:
             return model_path
         elif model_path.is_file():
             console.print(f"  [yellow]⚠  File exists but is not .onnx: {model_path}[/yellow]")
-            use_anyway = Confirm.ask("  [dim]Use this file anyway?[/dim]", default=False)
+            use_anywady = Confirm.ask("  [dim]Use this file anyway?[/dim]", default=False)
             if use_anyway:
                 return model_path
         else:
@@ -204,12 +204,12 @@ def _run_pipeline(
     console.print()
     
     # --- Phase 2: Analyze ONNX topology ---
-    with console.status("[bold green]📋 Phase 2 — Analyzing ONNX topology...[/bold green]"):
+    with console.status("[bold green]📋 Phase 2 — The Auditor (Analyzing ONNX topology)...[/bold green]"):
         analyzer = ModelAnalyzer(compiler.model_path)
         topology = analyzer.analyze()
         out_json = analyzer.save_topology(topology, compiler.output_dir)
         
-    console.print(f"  [green]✓[/green] [bold]Phase 2 — Topology Analyzed[/bold]")
+    console.print(f"  [green]✓[/green] [bold]Phase 2 — The Auditor (Topology Analyzed)[/bold]")
     console.print(f"    Saved to: [dim]{out_json}[/dim]\n")
 
     # Print summary table
@@ -235,13 +235,14 @@ def _run_pipeline(
     
     # Print the rest of the pending pipeline
     tree = Tree("[bold dimmer]Pending Pipeline Phases[/bold dimmer]")
-    tree.add("[dimmer]📐 Phase 2 — Prepare calibration data[/dimmer]")
-    tree.add("[dimmer]⚙️  Phase 3 — Vendor compilation[/dimmer]")
-    tree.add("[dimmer]📦 Phase 4 — Package deployment bundle[/dimmer]")
+    tree.add("[dimmer]📐 Phase 2 — The Auditor (Calibration)[/dimmer]")
+    tree.add("[dimmer]⚙️  Phase 3 — Vendor Plugin (The Strategy Implementation)[/dimmer]")
+    tree.add("[dimmer]📦 Phase 4 — The Transparent Packager[/dimmer]")
+    tree.add("[dimmer]📱 Phase 5 — The Native Edge Runtime (Android C++ Integration)[/dimmer]")
     console.print(tree)
     
     console.print(
-        "\n  [yellow]⚠️  Phases 2-4 execution not yet implemented — skeleton only[/yellow]"
+        "\n  [yellow]⚠️  Phases 2-5 execution not yet implemented — skeleton only[/yellow]"
     )
 
 

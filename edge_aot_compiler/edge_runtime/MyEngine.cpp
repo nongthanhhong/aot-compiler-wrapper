@@ -33,7 +33,7 @@ bool MyEngine::init(const std::string &bundle_path) {
   // TODO Phase 5: Implement the following steps
   // 1. Unzip deploy_bundle.zip into cache_dir_
   // 2. Parse manifest.json → set input_buffer_size_, output_buffer_size_
-  // 3. dlopen the vendor NPU library (e.g., libQnnLpai.so)
+  // 3. dlopen the vendor NPU library (e.g., libQnnHtp.so)
   // 4. Load the serialized model via contextCreateFromBinary
 
   return false; // Not yet implemented

@@ -28,7 +28,7 @@ edge_aot_compiler/
 │   ├── packager.py        # Generates manifest.json and zips the final deployment bundle
 │   └── compiler_base.py   # The Strategy Pattern interface (Abstract Base Class)
 ├── plugins/               # Domain 2: Vendor-Specific Implementations (Scalability)
-│   ├── qualcomm_lpai.py   # Implements VendorCompiler for QNN (Hexagon/LPAI)
+│   ├── qualcomm_htp.py    # Implements VendorCompiler for QNN (Hexagon HTP)
 │   └── mediatek_apu.py    # Implements VendorCompiler for NeuroPilot (Future)
 └── edge_runtime/          # Domain 3: The C++ Android Target
     ├── MyEngine.h         # The minimal C++ API 
@@ -61,7 +61,7 @@ edge_aot_compiler/
 1. Display a welcome banner with the project name and version.
 2. Run Phase 0 SDK check (automatic).
 3. Prompt: Model path (with file-exists validation, .onnx check).
-4. Prompt: Target backend (numbered menu: qnn_lpai, mediatek_apu).
+4. Prompt: Target backend (numbered menu: qnn_htp, mediatek_apu).
 5. Prompt: Calibration data directory (optional, directory-exists validation).
 6. Prompt: Output directory (default: build/).
 7. Show a confirmation summary panel and ask to proceed.
@@ -88,9 +88,9 @@ edge_aot_compiler/
 #### **Phase 3: The Qualcomm Plugin (The Strategy Implementation)** https://docs.qualcomm.com/doc/80-62010-1/topic/qnn-workflow.html
 
 * **Mục tiêu (Goal):** Implement the specific logic for compiling down to the Qualcomm NPU using the vendor's black-box SDK, while intercepting its logs.
-* **Architecture:** `plugins/qualcomm_lpai.py` inheriting from `VendorCompiler`.
+* **Architecture:** `plugins/qualcomm_htp.py` inheriting from `VendorCompiler`.
 * **Tasks:**
-1. **Configuration:** Programmatically generate `lpaiParams.conf` and `config.json` targeting the LPAI v6 backend.
+1. **Configuration:** Programmatically generate `htp_backend_extensions.json` targeting the HTP backend (VTCM, DLBC, perf profile).
 2. **Quantization & Conversion:** Use Python's `subprocess` to execute `qnn-onnx-converter`. Pass the `input_list.txt` to trigger INT8/INT16 post-training quantization. Capture `stdout` to look for fallback warnings.
 3. **Library Generation:** Subprocess `qnn-model-lib-generator` to create the intermediate `.so`.
 4. **Binary Generation:** Subprocess `qnn-context-binary-generator` to output the final, optimized `model.serialized` machine code. Write all captured logs to an `audit_log.txt`.
@@ -114,7 +114,7 @@ edge_aot_compiler/
 * **Tasks:**
 1. Write `MyEngine.cpp` to unzip the bundle in the Android app's cache directory.
 2. Parse the `manifest.json` using a lightweight C++ JSON library (like `nlohmann/json`) to allocate the exact byte sizes for the input and output memory buffers.
-3. Use `dlopen` to dynamically load Qualcomm's `libQnnLpai.so` directly on the Android device.
+3. Use `dlopen` to dynamically load Qualcomm's `libQnnHtp.so` directly on the Android device.
 4. Map the extracted `.serialized` payload into NPU memory using QNN's `contextCreateFromBinary` API, passing the input buffers directly from the Android UI to the silicon.
 
 

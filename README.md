@@ -20,7 +20,7 @@ pip install -r requirements.txt
 python -m edge_aot_compiler
 
 # Or use CLI flags for scripted workflows
-python -m edge_aot_compiler --model model.onnx --target qnn_lpai --calibration_dir ./cal_data/
+python -m edge_aot_compiler --model model.onnx --target qnn_htp --calibration_dir ./cal_data/
 ```
 
 On first run, the wrapper will detect the missing QAIRT SDK and offer to download it automatically.
@@ -37,7 +37,7 @@ edge_aot_compiler/
 │   ├── calibrator.py       # Images/audio → .raw + input_list.txt
 │   └── packager.py         # manifest.json + deploy_bundle.zip
 ├── plugins/                # Domain 2: Vendor-specific implementations
-│   ├── qualcomm_lpai.py    # Qualcomm QNN / Hexagon LPAI
+│   ├── qualcomm_htp.py     # Qualcomm QNN / Hexagon HTP
 │   └── mediatek_apu.py     # MediaTek NeuroPilot (placeholder)
 └── edge_runtime/           # Domain 3: Android C++ (NDK / JNI)
     ├── MyEngine.h
