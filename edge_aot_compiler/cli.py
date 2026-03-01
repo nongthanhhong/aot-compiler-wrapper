@@ -224,6 +224,63 @@ def _run_pipeline(
     table.add_row("Operators", f"{total_ops} total ({unique_ops} unique types)")
     
     console.print("    ", table, "\n")
+    
+    # --- Phase 2b: Calibration Data Conversion ---
+    if compiler.calibration_dir:
+        from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, MofNCompleteColumn, TimeElapsedColumn
+        from edge_aot_compiler.core.calibrator import CalibrationPreparer
+        
+        # Extract first input shape and dtype to guide preprocessing
+        inputs = topology.get("inputs", [])
+        if inputs:
+            input_shape = inputs[0].get("shape", [])
+            dtype = inputs[0].get("dtype", "FLOAT")
+        else:
+            input_shape = []
+            dtype = "FLOAT"
+            
+        calibrator = CalibrationPreparer(compiler.calibration_dir)
+        cal_out_dir = compiler.output_dir / "calibration_raw"
+
+        # Count supported files to size the progress bar
+        supported_ext = {".npy", ".wav", ".flac", ".jpg", ".jpeg", ".png", ".bmp"}
+        total_files = len([
+            f for f in compiler.calibration_dir.iterdir()
+            if f.is_file() and f.suffix.lower() in supported_ext
+        ])
+
+        console.print("  [bold]📐 Phase 2 — The Auditor (Calibration Data Conversion)[/bold]")
+
+        with Progress(
+            SpinnerColumn("dots"),
+            TextColumn("[bold cyan]{task.description}[/bold cyan]"),
+            BarColumn(bar_width=40, style="bright_blue", complete_style="bright_green", finished_style="green"),
+            MofNCompleteColumn(),
+            TextColumn("[dim]•[/dim]"),
+            TimeElapsedColumn(),
+            TextColumn("[dim]{task.fields[current_file]}[/dim]"),
+            console=console,
+            transient=False,
+        ) as progress:
+            task_id = progress.add_task(
+                "Converting calibration data",
+                total=total_files,
+                current_file="",
+            )
+
+            def _on_progress(current: int, total: int, filename: str) -> None:
+                progress.update(task_id, completed=current, current_file=filename)
+
+            raw_files = calibrator.convert_to_raw(
+                cal_out_dir, input_shape, dtype, progress_callback=_on_progress,
+            )
+
+        input_list_path = calibrator.generate_input_list(raw_files, compiler.output_dir)
+            
+        console.print(f"  [green]✓[/green] Converted [bold]{len(raw_files)}[/bold] samples → [dim]{cal_out_dir}[/dim]")
+        console.print(f"    Input list: [dim]{input_list_path}[/dim]\n")
+    else:
+        console.print("  [dim]Skipping calibration — using default precision[/dim]\n")
 
     if topology.get("has_dynamic_shapes"):
         console.print(
@@ -235,7 +292,6 @@ def _run_pipeline(
     
     # Print the rest of the pending pipeline
     tree = Tree("[bold dimmer]Pending Pipeline Phases[/bold dimmer]")
-    tree.add("[dimmer]📐 Phase 2 — The Auditor (Calibration)[/dimmer]")
     tree.add("[dimmer]⚙️  Phase 3 — Vendor Plugin (The Strategy Implementation)[/dimmer]")
     tree.add("[dimmer]📦 Phase 4 — The Transparent Packager[/dimmer]")
     tree.add("[dimmer]📱 Phase 5 — The Native Edge Runtime (Android C++ Integration)[/dimmer]")
